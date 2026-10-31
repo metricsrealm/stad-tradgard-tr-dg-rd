@@ -34,42 +34,30 @@ async function startServer() {
       }
 
       const clientUserAgent = body.user_agent || incomingUa || userAgent;
-      const rawService = body.service_type || "Trädgårdsservice";
-      // Map to an accepted CRM enum if needed (CRM expects Hemstäd/Fönsterputsning/Flyttstädning/Företagskunder)
-      const crmServiceType = rawService === "Trädgårdsservice" ? "Hemstäd" : rawService;
-      const fullComment = body.comment || body.message || "";
-      const gardenTag = rawService === "Trädgårdsservice" ? `[TRÄDGÅRDSSERVICE - ${body.offer_service || 'Förfrågan'}] ` : "";
-      const enrichedComment = gardenTag && !fullComment.includes("[TRÄDGÅRDSSERVICE") ? `${gardenTag}${fullComment}` : fullComment;
+
+      // Same rules as functions/api/submit-lead.ts (the production endpoint):
+      // CRM requires service_type, name, and phone or email; everything else is stored as-is.
+      const name = String(body.name || "").trim();
+      const phone = String(body.phone || "").trim();
+      const email = String(body.email || "").trim();
+      if (!name || (!phone && !email)) {
+        return res.status(400).json({ success: false, error: "name and phone or email are required" });
+      }
+      const allowedServiceTypes = ["Fönsterputsning", "window_cleaning", "Hemstäd", "Flyttstädning", "Företagskunder"];
+      const requestedService = String(body.service_type || "").trim();
+      const crmServiceType = allowedServiceTypes.includes(requestedService) ? requestedService : "Hemstäd";
 
       const submitPayload = {
+        ...body,
+        name,
+        phone,
+        email,
         service_type: crmServiceType,
+        requested_service_type: requestedService || undefined,
         form: body.form || "Trädgårdsservice Landing Page",
-        name: body.name || "",
-        phone: body.phone || "",
-        email: body.email || "",
-        city: body.city || "",
-        address: body.address || body.city || "",
-        number_of_windows: body.number_of_windows !== undefined ? body.number_of_windows : 0,
-        number_of_sides: body.number_of_sides !== undefined ? body.number_of_sides : 2,
-        window_details: body.window_details || {},
-        message: enrichedComment,
-        comment: enrichedComment,
-        offer_service: body.offer_service || "Trädgårdsservice",
-        potential_service: body.potential_service || "Trädgårdsservice",
-        suggested_price: priceNum,
-        totalpris: priceNum ? `${priceNum} kr` : "",
-        button_click: body.button_click || "no",
-        is_button_click: body.is_button_click || body.button_click || "no",
+        ...(priceNum ? { suggested_price: priceNum, totalpris: `${priceNum} kr` } : {}),
         user_agent: clientUserAgent,
-        user_ip: body.user_ip || clientIp,
-        user_type: body.user_type || "Privatperson",
-        utm_source: body.utm_source || "",
-        utm_medium: body.utm_medium || "",
-        utm_campaign: body.utm_campaign || "",
-        utm_term: body.utm_term || "",
-        utm_content: body.utm_content || "",
-        gclid: body.gclid || "",
-        fbclid: body.fbclid || ""
+        user_ip: body.user_ip || clientIp
       };
 
       console.log("Submitting lead payload to https://stadochtradgard.se/dashboard/submit_form:", submitPayload);

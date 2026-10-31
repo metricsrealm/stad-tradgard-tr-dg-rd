@@ -171,11 +171,17 @@ export default function GardenEnquiryForm({
     const chosenServicesText = selectedServices.join(', ');
     const fullMessage = `Önskade trädgårdstjänster: ${chosenServicesText}\nOrt: ${city.trim()}\nÖnskat datum: ${desiredDate}`;
 
-    const payload: FormValues = {
-      service_type: 'Trädgårdsservice',
+    // The CRM only accepts Fönsterputsning / Hemstäd / Flyttstädning / Företagskunder,
+    // so garden leads go in as Hemstäd. The `form` name and the services list
+    // show it is a garden lead.
+    const payload: FormValues & Record<string, unknown> = {
+      service_type: 'Hemstäd',
+      form: 'Trädgårdsservice Landing Page',
+      garden_services: selectedServices,
+      desired_date: desiredDate,
+      landing_page_url: window.location.href,
       offer_service: selectedServices[0] || 'Trädgårdsservice',
       potential_service: chosenServicesText,
-      form: 'Trädgårdsservice Landing Page',
       name: name.trim(),
       email: email.trim(),
       phone: phone.trim(),
@@ -220,21 +226,26 @@ export default function GardenEnquiryForm({
       console.error('dataLayer tracking error:', err);
     }
 
+    // Send direct to the CRM. Only works when the page runs on stadochtradgard.se (CRM CORS rule).
+    const submitDirect = () =>
+      fetch('https://stadochtradgard.se/dashboard/submit_form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch((err) => console.error('Direct CRM submission failed:', err));
+
     try {
+      // Main path: our server-side proxy, which isn't affected by CORS
       const resp = await fetch('/api/submit-lead', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (!resp.ok) {
-        await fetch('https://stadochtradgard.se/dashboard/submit_form', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }).catch(() => {});
-      }
+      // Proxy missing or failing (not a validation error) -> try the CRM directly
+      if (!resp.ok && resp.status !== 400) await submitDirect();
     } catch (err) {
       console.error('Form submission error:', err);
+      await submitDirect();
     } finally {
       setIsSubmitting(false);
       setStep(3);
