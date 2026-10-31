@@ -52,6 +52,18 @@ export default function GardenEnquiryForm({
   const [phoneError, setPhoneError] = useState<boolean>(false);
   const [emailError, setEmailError] = useState<boolean>(false);
   const [serviceError, setServiceError] = useState<boolean>(false);
+  const [cityError, setCityError] = useState<boolean>(false);
+  const [dateError, setDateError] = useState<boolean>(false);
+
+  // Move focus to the first invalid field so the user sees what is missing
+  const focusFirst = (ids: (string | false)[]) => {
+    const id = ids.find(Boolean) as string | undefined;
+    const el = id ? document.getElementById(id) : null;
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus({ preventScroll: true });
+    }
+  };
 
   // Sync initial city
   useEffect(() => {
@@ -99,6 +111,7 @@ export default function GardenEnquiryForm({
     setEmailError(isEmailBad);
 
     if (isNameBad || isPhoneBad || isEmailBad) {
+      focusFirst([isNameBad && 'name', isPhoneBad && 'phone', isEmailBad && 'email']);
       return;
     }
 
@@ -122,11 +135,25 @@ export default function GardenEnquiryForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (selectedServices.length === 0) {
-      setServiceError(true);
+    if (isSubmitting) return;
+
+    const isServiceBad = selectedServices.length === 0;
+    const isCityBad = city.trim().length < 2;
+    const isDateBad = !desiredDate;
+
+    setServiceError(isServiceBad);
+    setCityError(isCityBad);
+    setDateError(isDateBad);
+
+    if (isServiceBad || isCityBad || isDateBad) {
+      focusFirst([
+        isServiceBad && 'services',
+        isCityBad && 'city',
+        isDateBad && 'desired-date'
+      ]);
       return;
     }
-    setServiceError(false);
+
 
     setIsSubmitting(true);
 
@@ -142,8 +169,7 @@ export default function GardenEnquiryForm({
     };
 
     const chosenServicesText = selectedServices.join(', ');
-    const dateText = desiredDate ? `\nÖnskat datum: ${desiredDate}` : '';
-    const fullMessage = `Önskade trädgårdstjänster: ${chosenServicesText}\nOrt: ${city || 'Ej angiven'}${dateText}`;
+    const fullMessage = `Önskade trädgårdstjänster: ${chosenServicesText}\nOrt: ${city.trim()}\nÖnskat datum: ${desiredDate}`;
 
     const payload: FormValues = {
       service_type: 'Trädgårdsservice',
@@ -367,8 +393,14 @@ export default function GardenEnquiryForm({
             <small>50% RUT-avdrag</small>
           </div>
 
-          {/* 3 by 3 Grid Layout for Services */}
-          <div className="checks checks-3by3" id="services" role="group" aria-label="Välj trädgårdstjänst">
+          {/* 2-column grid for services */}
+          <div
+            className={`checks checks-3by3 ${serviceError ? 'has-err' : ''}`}
+            id="services"
+            role="group"
+            aria-label="Välj trädgårdstjänst"
+            tabIndex={-1}
+          >
             {GARDEN_SERVICES.map((svc) => {
               const isChecked = selectedServices.includes(svc);
               return (
@@ -386,37 +418,52 @@ export default function GardenEnquiryForm({
             })}
           </div>
 
-          <p className={`msg ${serviceError ? 'show' : ''}`} id="err-service" style={{ margin: '-8px 0 12px' }}>
+          <p className={`msg ${serviceError ? 'show' : ''}`} id="err-service">
             Välj minst en tjänst för att gå vidare.
           </p>
 
-          {/* Ort / Område & Önskat datum in responsive field-row */}
-          <div className="field-row">
+          {/* Ort + Önskat datum */}
+          <div className="field-row field-row-keep">
             <div className="field">
-              <label htmlFor="city">Ort / Område</label>
-              <div className="inp">
+              <label htmlFor="city">
+                Ort / Område <b>*</b>
+              </label>
+              <div className={`inp ${cityError ? 'err' : ''}`}>
                 <svg className="ico"><use href="#i-pin" /></svg>
                 <input
                   id="city"
                   name="city"
                   type="text"
-                  placeholder="Skriv din stad..."
+                  placeholder="Din stad"
                   autoComplete="address-level2"
+                  required
+                  aria-invalid={cityError || undefined}
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  onChange={(e) => {
+                    setCity(e.target.value);
+                    if (cityError) setCityError(false);
+                  }}
                 />
               </div>
+              <p className={`msg ${cityError ? 'show' : ''}`}>Ange ort.</p>
             </div>
 
             <div className="field">
-              <label htmlFor="desired-date">Önskat datum</label>
+              <label htmlFor="desired-date">
+                Önskat datum <b>*</b>
+              </label>
               <DatePicker
                 id="desired-date"
                 value={desiredDate}
-                onChange={setDesiredDate}
-                placeholder="Välj datum..."
+                error={dateError}
+                onChange={(d) => {
+                  setDesiredDate(d);
+                  if (d) setDateError(false);
+                }}
+                placeholder="Välj datum"
                 headerTitle="Välj önskat startdatum"
               />
+              <p className={`msg ${dateError ? 'show' : ''}`}>Välj ett datum.</p>
             </div>
           </div>
 

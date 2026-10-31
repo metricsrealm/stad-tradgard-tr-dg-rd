@@ -57,7 +57,7 @@ export default function ServiceArea({ currentCityName }: ServiceAreaProps) {
           <h3>Tveksam om vi är verksamma på din gata?</h3>
           <a href="tel:+46101753040">
             <svg className="ico"><use href="#i-phone" /></svg>
-            <span>Ring och fråga oss direkt: 010-175 30 40</span>
+            <span>Ring och fråga oss direkt: <span className="nowrap">010-175 30 40</span></span>
           </a>
         </div>
       </div>
