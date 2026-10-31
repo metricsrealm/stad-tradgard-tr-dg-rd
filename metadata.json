@@ -1,0 +1,8 @@
+{
+  "name": "Städ & Trädgårdsservice | Trädgårdsservice",
+  "description": "Professionell trädgårdsservice för en välskött trädgård sedan 1998. Gräsklippning, beskärning, stenrengöring, terrasstvätt och säsongsstädning med 50% RUT-avdrag.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
