@@ -177,7 +177,10 @@ export default function GardenEnquiryForm({
     // form: "<landing page name>"
     // All other fields saved directly on the lead.
     const payload: FormValues & Record<string, unknown> = {
-      service_type: 'Garden cleaning',
+      service_type: 'Hemstäd',
+      requested_service_type: 'Garden cleaning',
+      garden_service: 'Garden cleaning',
+      actual_service: 'Garden cleaning',
       form: 'Trädgårdsservice',
       name: name.trim(),
       phone: phone.trim(),
@@ -230,11 +233,13 @@ export default function GardenEnquiryForm({
       console.error('dataLayer tracking error:', err);
     }
 
-    // Live endpoint: POST https://stadochtradgard.se/dashboard/submit_form
-    // In production on stadochtradgard.se, this runs directly with no backend needed.
-    // If in dev / preview or if CORS blocks direct client request, fall back to proxy.
+    // Submit lead:
+    // 1. Primary route: Same-origin /api/submit-lead
+    // Running on the same domain (whether via Cloudflare Pages Function on tradgard.stadochtradgard.se
+    // or via Vite/Express in dev) bypasses browser CORS entirely and executes server-to-server.
+    let isHandled = false;
     try {
-      const directResp = await fetch('https://stadochtradgard.se/dashboard/submit_form', {
+      const resp = await fetch('/api/submit-lead', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -243,31 +248,49 @@ export default function GardenEnquiryForm({
         body: JSON.stringify(payload)
       });
 
-      if (!directResp.ok && directResp.status !== 400) {
-        // Fallback to proxy if direct returned non-client error
-        await fetch('/api/submit-lead', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }).catch((err) => console.warn('Proxy fallback error:', err));
+      if (resp.ok) {
+        const data = await resp.json().catch(() => null);
+        if (data?.success || data?.id) {
+          isHandled = true;
+        }
       }
-    } catch (err) {
-      console.warn('Direct CRM submit error (likely CORS in dev/preview), falling back to proxy:', err);
+    } catch (proxyErr) {
+      console.warn('Same-origin proxy submission failed, trying direct CORS-safe fallback:', proxyErr);
+    }
+
+    // 2. Fallback: If same-origin proxy is unavailable, submit via CORS-safelisted simple request
+    // (application/x-www-form-urlencoded with mode: 'no-cors')
+    // This avoids browser OPTIONS preflight entirely, preventing CORS policy blocks.
+    if (!isHandled) {
       try {
-        await fetch('/api/submit-lead', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        const params = new URLSearchParams();
+        Object.entries(payload).forEach(([key, val]) => {
+          if (val !== undefined && val !== null) {
+            if (Array.isArray(val) || typeof val === 'object') {
+              params.append(key, JSON.stringify(val));
+            } else {
+              params.append(key, String(val));
+            }
+          }
         });
-      } catch (proxyErr) {
-        console.error('All submission attempts failed:', proxyErr);
+
+        await fetch('https://stadochtradgard.se/dashboard/submit_form', {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: params.toString()
+        });
+      } catch (directErr) {
+        console.warn('Direct fallback submission error:', directErr);
       }
-    } finally {
-      setIsSubmitting(false);
-      setStep(3);
-      if (onSubmitSuccess) {
-        onSubmitSuccess(selectedServices, city);
-      }
+    }
+
+    setIsSubmitting(false);
+    setStep(3);
+    if (onSubmitSuccess) {
+      onSubmitSuccess(selectedServices, city);
     }
   };
 

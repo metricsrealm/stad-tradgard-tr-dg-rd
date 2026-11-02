@@ -138,7 +138,7 @@ const submitLeadToCRM = async (payload: FormValues) => {
     console.error("Proxy CRM submission failed/errored. Falling back to direct CRM POST...", err);
   }
 
-  // Fallback: Direct POST to https://stadochtradgard.se/dashboard/submit_form
+  // Fallback: Direct POST to https://stadochtradgard.se/dashboard/submit_form using CORS-safe form-urlencoded
   try {
     const directPayload = {
       ...formattedPayload,
@@ -146,18 +146,25 @@ const submitLeadToCRM = async (payload: FormValues) => {
       form: "Fönsterputsning Landing Page"
     };
 
-    const directResp = await fetch("https://stadochtradgard.se/dashboard/submit_form", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(directPayload)
+    const params = new URLSearchParams();
+    Object.entries(directPayload).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) {
+        if (typeof v === "object") {
+          params.append(k, JSON.stringify(v));
+        } else {
+          params.append(k, String(v));
+        }
+      }
     });
 
-    if (directResp.ok) {
-      const directData = await directResp.json();
-      return directData;
-    }
+    await fetch("https://stadochtradgard.se/dashboard/submit_form", {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: params.toString()
+    });
 
     return { success: true, fallback: true };
   } catch (fallbackErr) {

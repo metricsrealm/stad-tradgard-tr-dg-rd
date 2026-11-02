@@ -43,26 +43,29 @@ async function startServer() {
       if (!name || (!phone && !email)) {
         return res.status(400).json({ success: false, error: "name and phone or email are required" });
       }
-      const allowedServiceTypes = [
-        "Garden cleaning",
+
+      // CRM strictly accepts these enum values: Hemstäd, Fönsterputsning, window_cleaning, Flyttstädning, Företagskunder
+      const crmAcceptedServices = [
+        "Hemstäd",
         "Fönsterputsning",
         "window_cleaning",
-        "Hemstäd",
         "Flyttstädning",
         "Företagskunder"
       ];
-      const requestedService = String(body.service_type || "").trim();
-      const crmServiceType = allowedServiceTypes.includes(requestedService)
+      const requestedService = String(body.service_type || body.service || "").trim();
+      const crmServiceType = crmAcceptedServices.includes(requestedService)
         ? requestedService
-        : (requestedService || "Garden cleaning");
+        : "Hemstäd";
 
-      const submitPayload = {
+      const submitPayload: Record<string, any> = {
         ...body,
         name,
         phone,
         email,
         service_type: crmServiceType,
-        requested_service_type: requestedService || undefined,
+        requested_service_type: requestedService || "Garden cleaning",
+        garden_service: body.garden_service || requestedService || "Garden cleaning",
+        actual_service: requestedService || "Garden cleaning",
         form: body.form || "Trädgårdsservice",
         ...(priceNum ? { suggested_price: priceNum, totalpris: `${priceNum} kr` } : {}),
         user_agent: clientUserAgent,
@@ -71,7 +74,7 @@ async function startServer() {
 
       console.log("Submitting lead payload to https://stadochtradgard.se/dashboard/submit_form:", submitPayload);
 
-      const response = await fetch("https://stadochtradgard.se/dashboard/submit_form", {
+      let response = await fetch("https://stadochtradgard.se/dashboard/submit_form", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -81,7 +84,7 @@ async function startServer() {
         body: JSON.stringify(submitPayload)
       });
 
-      const responseText = await response.text();
+      let responseText = await response.text();
       console.log("CRM submit_form response status:", response.status, responseText);
 
       let parsedData: any = null;
@@ -91,17 +94,36 @@ async function startServer() {
         // text response
       }
 
+      // Retry with Hemstäd if rejected on service_type
+      if (parsedData?.errors?.service_type && submitPayload.service_type !== "Hemstäd") {
+        submitPayload.service_type = "Hemstäd";
+        response = await fetch("https://stadochtradgard.se/dashboard/submit_form", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": userAgent,
+            "Accept": "application/json, text/plain, */*"
+          },
+          body: JSON.stringify(submitPayload)
+        });
+        responseText = await response.text();
+        try {
+          parsedData = JSON.parse(responseText);
+        } catch {}
+      }
+
       const leadId = parsedData?.id || parsedData?.customer_id || null;
+      const isSuccess = response.ok || response.status === 200 || parsedData?.result === "success" || Boolean(leadId);
 
       res.json({
-        success: response.ok || response.status === 200 || parsedData?.result === "success" || parsedData?.status === "success",
+        success: isSuccess,
         status: response.status,
         id: leadId,
         data: parsedData,
         textExcerpt: responseText.substring(0, 300)
       });
     } catch (e: any) {
-      console.error("Error proxying submit_quote to PHP server:", e);
+      console.error("Error proxying submit_lead to CRM server:", e);
       res.json({ success: false, error: e.message });
     }
   });
