@@ -171,24 +171,28 @@ export default function GardenEnquiryForm({
     const chosenServicesText = selectedServices.join(', ');
     const fullMessage = `Önskade trädgårdstjänster: ${chosenServicesText}\nOrt: ${city.trim()}\nÖnskat datum: ${desiredDate}`;
 
-    // The CRM only accepts Fönsterputsning / Hemstäd / Flyttstädning / Företagskunder,
-    // so garden leads go in as Hemstäd. The `form` name and the services list
-    // show it is a garden lead.
+    // CRM requirements:
+    // POST https://stadochtradgard.se/dashboard/submit_form
+    // Required: service_type ("Garden cleaning"), name, and phone or email.
+    // form: "<landing page name>"
+    // All other fields saved directly on the lead.
     const payload: FormValues & Record<string, unknown> = {
-      service_type: 'Hemstäd',
-      form: 'Trädgårdsservice Landing Page',
-      garden_services: selectedServices,
-      desired_date: desiredDate,
-      landing_page_url: window.location.href,
-      offer_service: selectedServices[0] || 'Trädgårdsservice',
-      potential_service: chosenServicesText,
+      service_type: 'Garden cleaning',
+      form: 'Trädgårdsservice',
       name: name.trim(),
-      email: email.trim(),
       phone: phone.trim(),
+      email: email.trim(),
       city: city.trim(),
       address: city.trim(),
-      cleaningDate: desiredDate,
+      garden_services: selectedServices,
+      services: chosenServicesText,
+      selected_services: selectedServices,
+      desired_date: desiredDate,
       cleaning_date: desiredDate,
+      cleaningDate: desiredDate,
+      landing_page_url: typeof window !== 'undefined' ? window.location.href : '',
+      offer_service: selectedServices[0] || 'Trädgårdsservice',
+      potential_service: chosenServicesText,
       message: fullMessage,
       comment: fullMessage,
       button_click: 'yes',
@@ -226,26 +230,38 @@ export default function GardenEnquiryForm({
       console.error('dataLayer tracking error:', err);
     }
 
-    // Send direct to the CRM. Only works when the page runs on stadochtradgard.se (CRM CORS rule).
-    const submitDirect = () =>
-      fetch('https://stadochtradgard.se/dashboard/submit_form', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch((err) => console.error('Direct CRM submission failed:', err));
-
+    // Live endpoint: POST https://stadochtradgard.se/dashboard/submit_form
+    // In production on stadochtradgard.se, this runs directly with no backend needed.
+    // If in dev / preview or if CORS blocks direct client request, fall back to proxy.
     try {
-      // Main path: our server-side proxy, which isn't affected by CORS
-      const resp = await fetch('/api/submit-lead', {
+      const directResp = await fetch('https://stadochtradgard.se/dashboard/submit_form', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/plain, */*'
+        },
         body: JSON.stringify(payload)
       });
-      // Proxy missing or failing (not a validation error) -> try the CRM directly
-      if (!resp.ok && resp.status !== 400) await submitDirect();
+
+      if (!directResp.ok && directResp.status !== 400) {
+        // Fallback to proxy if direct returned non-client error
+        await fetch('/api/submit-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch((err) => console.warn('Proxy fallback error:', err));
+      }
     } catch (err) {
-      console.error('Form submission error:', err);
-      await submitDirect();
+      console.warn('Direct CRM submit error (likely CORS in dev/preview), falling back to proxy:', err);
+      try {
+        await fetch('/api/submit-lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (proxyErr) {
+        console.error('All submission attempts failed:', proxyErr);
+      }
     } finally {
       setIsSubmitting(false);
       setStep(3);

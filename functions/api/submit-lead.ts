@@ -5,12 +5,18 @@
 // The call is made server-side, so the CRM's browser CORS rule doesn't block it.
 
 const CRM_URL = "https://stadochtradgard.se/dashboard/submit_form";
-const DEFAULT_FORM = "Trädgårdsservice Landing Page";
+const DEFAULT_FORM = "Trädgårdsservice";
 
-// The CRM only accepts these service types
-const ALLOWED_SERVICE_TYPES = ["Fönsterputsning", "window_cleaning", "Hemstäd", "Flyttstädning", "Företagskunder"];
-// Garden leads have no own CRM type, so they are filed under this one
-const FALLBACK_SERVICE_TYPE = "Hemstäd";
+// The CRM accepts these service types
+const ALLOWED_SERVICE_TYPES = [
+  "Garden cleaning",
+  "Fönsterputsning",
+  "window_cleaning",
+  "Hemstäd",
+  "Flyttstädning",
+  "Företagskunder"
+];
+const FALLBACK_SERVICE_TYPE = "Garden cleaning";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

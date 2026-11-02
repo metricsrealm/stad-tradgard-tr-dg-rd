@@ -43,9 +43,18 @@ async function startServer() {
       if (!name || (!phone && !email)) {
         return res.status(400).json({ success: false, error: "name and phone or email are required" });
       }
-      const allowedServiceTypes = ["Fönsterputsning", "window_cleaning", "Hemstäd", "Flyttstädning", "Företagskunder"];
+      const allowedServiceTypes = [
+        "Garden cleaning",
+        "Fönsterputsning",
+        "window_cleaning",
+        "Hemstäd",
+        "Flyttstädning",
+        "Företagskunder"
+      ];
       const requestedService = String(body.service_type || "").trim();
-      const crmServiceType = allowedServiceTypes.includes(requestedService) ? requestedService : "Hemstäd";
+      const crmServiceType = allowedServiceTypes.includes(requestedService)
+        ? requestedService
+        : (requestedService || "Garden cleaning");
 
       const submitPayload = {
         ...body,
@@ -54,7 +63,7 @@ async function startServer() {
         email,
         service_type: crmServiceType,
         requested_service_type: requestedService || undefined,
-        form: body.form || "Trädgårdsservice Landing Page",
+        form: body.form || "Trädgårdsservice",
         ...(priceNum ? { suggested_price: priceNum, totalpris: `${priceNum} kr` } : {}),
         user_agent: clientUserAgent,
         user_ip: body.user_ip || clientIp
