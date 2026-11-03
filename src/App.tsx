@@ -25,7 +25,7 @@ const getInitialCity = () => {
 };
 
 const getInitialService = () => {
-  if (typeof window === 'undefined') return 'Gräsklippning';
+  if (typeof window === 'undefined') return '';
   const params = new URLSearchParams(window.location.search);
   const s = params.get('service');
   if (s) {
@@ -37,7 +37,7 @@ const getInitialService = () => {
     if (dec.includes('terrass') || dec.includes('altan')) return 'Terrasstvätt';
     if (dec.includes('höst') || dec.includes('vår') || dec.includes('säsong')) return 'Höst- & Vårstädning';
   }
-  return 'Gräsklippning';
+  return '';
 };
 
 export default function App() {
@@ -156,6 +156,12 @@ export default function App() {
               selectedService={selectedService}
               onScrollToForm={scrollToForm}
               onPrivacyClick={() => setIsPrivacyOpen(true)}
+              onSubmitSuccess={(services, city) => {
+                if (services && services.length > 0) {
+                  setSelectedService(services.join(', '));
+                }
+                if (city) setActiveCity(city);
+              }}
             />
 
             {/* 3. Horizontal Trust Bar */}

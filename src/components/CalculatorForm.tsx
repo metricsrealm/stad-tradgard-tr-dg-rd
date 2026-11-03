@@ -118,6 +118,10 @@ const submitLeadToCRM = async (payload: FormValues) => {
     fbclid: payload.fbclid || searchParams.get("fbclid") || ""
   };
 
+  console.group('%c🚀 [FORM SUBMISSION] Submitting Lead (CalculatorForm)', 'color: #1d4ed8; font-weight: bold;');
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Payload being submitted:', formattedPayload);
+
   try {
     const resp = await fetch("/api/submit-lead", {
       method: "POST",
@@ -127,9 +131,18 @@ const submitLeadToCRM = async (payload: FormValues) => {
       body: JSON.stringify(formattedPayload)
     });
 
+    console.log(`Server HTTP Status: ${resp.status} ${resp.statusText}`);
+
     if (resp.ok) {
       const data = await resp.json();
-      console.log("CRM submission via proxy succeeded:", data);
+      console.log("Response from server:", data);
+      const isReceived = data?.success || data?.received || Boolean(data?.id);
+      if (isReceived) {
+        console.log(`%c✅ [LEAD RECEIVED: YES] Lead successfully registered in CRM! Reference ID: ${data?.id || 'OK'}`, 'color: #16a34a; font-weight: bold;');
+      } else {
+        console.warn('%c⚠️ [LEAD RECEIVED: NO] Server returned response but success was false:', 'color: #ea580c; font-weight: bold;', data);
+      }
+      console.groupEnd();
       return data;
     }
 

@@ -72,7 +72,12 @@ async function startServer() {
         user_ip: body.user_ip || clientIp
       };
 
-      console.log("Submitting lead payload to https://stadochtradgard.se/dashboard/submit_form:", submitPayload);
+      console.log("\n=======================================================");
+      console.log(`[SERVER] 🚀 FORM SUBMITTED to /api/submit-lead at ${new Date().toISOString()}`);
+      console.log(`[SERVER] Name: ${name} | Phone: ${phone} | Email: ${email}`);
+      console.log(`[SERVER] City: ${body.city || body.address || 'N/A'} | Desired Date: ${body.desired_date || body.cleaning_date || 'N/A'}`);
+      console.log(`[SERVER] Services: ${body.services || body.garden_services || requestedService || 'Garden cleaning'}`);
+      console.log("[SERVER] Submitting payload to CRM (https://stadochtradgard.se/dashboard/submit_form):", JSON.stringify(submitPayload, null, 2));
 
       let response = await fetch("https://stadochtradgard.se/dashboard/submit_form", {
         method: "POST",
@@ -85,7 +90,8 @@ async function startServer() {
       });
 
       let responseText = await response.text();
-      console.log("CRM submit_form response status:", response.status, responseText);
+      console.log(`[SERVER] 📡 CRM Response status: ${response.status} ${response.statusText}`);
+      console.log("[SERVER] CRM Response body:", responseText);
 
       let parsedData: any = null;
       try {
@@ -96,6 +102,7 @@ async function startServer() {
 
       // Retry with Hemstäd if rejected on service_type
       if (parsedData?.errors?.service_type && submitPayload.service_type !== "Hemstäd") {
+        console.log("[SERVER] ⚠️ Retrying CRM submission with service_type 'Hemstäd'...");
         submitPayload.service_type = "Hemstäd";
         response = await fetch("https://stadochtradgard.se/dashboard/submit_form", {
           method: "POST",
@@ -107,6 +114,7 @@ async function startServer() {
           body: JSON.stringify(submitPayload)
         });
         responseText = await response.text();
+        console.log(`[SERVER] 📡 CRM Retry status: ${response.status}`, responseText);
         try {
           parsedData = JSON.parse(responseText);
         } catch {}
@@ -115,16 +123,29 @@ async function startServer() {
       const leadId = parsedData?.id || parsedData?.customer_id || null;
       const isSuccess = response.ok || response.status === 200 || parsedData?.result === "success" || Boolean(leadId);
 
+      console.log(`[SERVER] 📊 Lead received status: ${isSuccess ? '✅ YES (Lead received successfully by CRM)' : '❌ NO (Lead was not received or failed)'}`);
+      if (leadId) {
+        console.log(`[SERVER] 🆔 Lead Reference ID: ${leadId}`);
+      }
+      console.log("=======================================================\n");
+
       res.json({
         success: isSuccess,
+        received: isSuccess,
+        message: isSuccess ? "Lead successfully received by CRM" : "Lead submission could not be processed",
         status: response.status,
         id: leadId,
         data: parsedData,
         textExcerpt: responseText.substring(0, 300)
       });
     } catch (e: any) {
-      console.error("Error proxying submit_lead to CRM server:", e);
-      res.json({ success: false, error: e.message });
+      console.error("[SERVER] ❌ Error proxying submit_lead to CRM server:", e);
+      res.status(500).json({
+        success: false,
+        received: false,
+        message: "Failed to forward lead to CRM server",
+        error: e.message
+      });
     }
   });
 

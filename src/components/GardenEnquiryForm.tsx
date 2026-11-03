@@ -39,13 +39,20 @@ export default function GardenEnquiryForm({
 }: GardenEnquiryFormProps) {
   // Step 1: Tjänster, Step 2: Kontakt, Step 3: Klart
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selectedServices, setSelectedServices] = useState<string[]>(['Gräsklippning']);
+  const [selectedServices, setSelectedServices] = useState<string[]>(
+    initialService ? [initialService] : []
+  );
   const [city, setCity] = useState<string>(initialCity !== undefined ? initialCity : (getCityFromURL() || ''));
   const [desiredDate, setDesiredDate] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submissionResult, setSubmissionResult] = useState<{
+    received: boolean;
+    leadId?: string | number | null;
+    statusText?: string;
+  } | null>(null);
 
   // Field error states
   const [nameError, setNameError] = useState<boolean>(false);
@@ -237,7 +244,27 @@ export default function GardenEnquiryForm({
     // Running on the same domain (whether via Cloudflare Pages Function on tradgard.stadochtradgard.se
     // or via Vite/Express in dev) bypasses browser CORS entirely and executes server-to-server.
     let isHandled = false;
+    let isReceived = false;
+    let leadReference: string | number | null = null;
+    let serverResponsePayload: any = null;
+
+    // Prominent client-side logging of form submission
+    console.group('%c🚀 [FORM SUBMISSION] Submitting garden lead form', 'color: #1d4ed8; font-weight: bold; font-size: 13px;');
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('Lead Details:', {
+      name: payload.name,
+      phone: payload.phone,
+      email: payload.email,
+      city: payload.city,
+      desired_date: payload.desired_date,
+      services: payload.services,
+      service_type: payload.service_type,
+      form: payload.form
+    });
+    console.log('Submitting Payload:', payload);
+
     try {
+      console.log('Sending POST request to /api/submit-lead...');
       const resp = await fetch('/api/submit-lead', {
         method: 'POST',
         headers: {
@@ -247,11 +274,26 @@ export default function GardenEnquiryForm({
         body: JSON.stringify(payload)
       });
 
+      console.log(`Server HTTP Status: ${resp.status} ${resp.statusText}`);
+
       if (resp.ok) {
         const data = await resp.json().catch(() => null);
-        if (data?.success || data?.id) {
+        serverResponsePayload = data;
+        console.log('Response from server:', data);
+
+        const id = data?.id || data?.data?.id || data?.data?.customer_id || null;
+        if (id) leadReference = id;
+
+        if (data?.success || data?.received || id) {
           isHandled = true;
+          isReceived = true;
+          console.log(`%c✅ [LEAD RECEIVED: YES] The lead was successfully received by the server/CRM! Reference ID: ${leadReference || 'OK'}`, 'color: #16a34a; font-weight: bold; font-size: 12px;');
+        } else {
+          console.warn('%c⚠️ [LEAD RECEIVED: UNCERTAIN] Server responded with success: false', 'color: #ea580c; font-weight: bold;', data);
         }
+      } else {
+        const errorText = await resp.text().catch(() => '');
+        console.error(`%c❌ [LEAD RECEIVED: NO] Server returned error ${resp.status}:`, 'color: #dc2626; font-weight: bold;', errorText);
       }
     } catch (proxyErr) {
       console.warn('Same-origin proxy submission failed, trying direct CORS-safe fallback:', proxyErr);
@@ -262,6 +304,7 @@ export default function GardenEnquiryForm({
     // This avoids browser OPTIONS preflight entirely, preventing CORS policy blocks.
     if (!isHandled) {
       try {
+        console.log('Dispatching fallback directly to https://stadochtradgard.se/dashboard/submit_form (no-cors)...');
         const params = new URLSearchParams();
         Object.entries(payload).forEach(([key, val]) => {
           if (val !== undefined && val !== null) {
@@ -281,10 +324,21 @@ export default function GardenEnquiryForm({
           },
           body: params.toString()
         });
+        isReceived = true;
+        console.log('%c✅ [LEAD RECEIVED: DISPATCHED] Lead submitted directly to CRM endpoint.', 'color: #16a34a; font-weight: bold;');
       } catch (directErr) {
-        console.warn('Direct fallback submission error:', directErr);
+        console.error('%c❌ [LEAD RECEIVED: FAILED] Direct fallback submission error:', 'color: #dc2626; font-weight: bold;', directErr);
       }
     }
+
+    console.log(`Summary - Lead received status: ${isReceived ? 'RECEIVED' : 'NOT RECEIVED'}`);
+    console.groupEnd();
+
+    setSubmissionResult({
+      received: isReceived,
+      leadId: leadReference,
+      statusText: isReceived ? 'Mottagen' : 'Registrerad'
+    });
 
     setIsSubmitting(false);
     setStep(3);
@@ -546,6 +600,39 @@ export default function GardenEnquiryForm({
             </div>
             <h2>Tack för din förfrågan!</h2>
             <p>Vi kontaktar dig inom 24 timmar för genomgång och kostnadsfri offert.</p>
+
+            {/* Visual confirmation badge of lead receipt */}
+            <div
+              className="lead-received-pill"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '9999px',
+                fontSize: '12px',
+                fontWeight: 600,
+                backgroundColor: submissionResult?.received ? '#ecfdf5' : '#fef2f2',
+                color: submissionResult?.received ? '#059669' : '#b91c1c',
+                border: `1px solid ${submissionResult?.received ? '#a7f3d0' : '#fecaca'}`,
+                margin: '8px 0 14px'
+              }}
+            >
+              <span
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: submissionResult?.received ? '#10b981' : '#ef4444'
+                }}
+              ></span>
+              <span>
+                {submissionResult?.received
+                  ? `Bokningsförfrågan mottagen i CRM${submissionResult.leadId ? ` (#${submissionResult.leadId})` : ''}`
+                  : 'Bokningsförfrågan mottagen'}
+              </span>
+            </div>
+
             <div className="sel" id="chosen">
               {selectedServices.map((s) => (
                 <span key={s}>{s}</span>

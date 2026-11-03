@@ -82,6 +82,12 @@ export async function onRequestPost(context: any) {
   };
 
   try {
+    console.log("\n=======================================================");
+    console.log(`[Cloudflare /api/submit-lead] 🚀 FORM SUBMITTED at ${new Date().toISOString()}`);
+    console.log(`[Cloudflare /api/submit-lead] Name: ${name} | Phone: ${phone} | Email: ${email}`);
+    console.log(`[Cloudflare /api/submit-lead] City: ${payload.city || 'N/A'} | Desired Date: ${payload.desired_date || 'N/A'}`);
+    console.log(`[Cloudflare /api/submit-lead] Submitting payload to CRM:`, JSON.stringify(payload, null, 2));
+
     let response = await fetch(CRM_URL, {
       method: "POST",
       headers: {
@@ -93,6 +99,9 @@ export async function onRequestPost(context: any) {
     });
 
     let text = await response.text();
+    console.log(`[Cloudflare /api/submit-lead] 📡 CRM Response status: ${response.status} ${response.statusText}`);
+    console.log(`[Cloudflare /api/submit-lead] CRM Response body:`, text);
+
     let data: any = null;
     try {
       data = JSON.parse(text);
@@ -102,6 +111,7 @@ export async function onRequestPost(context: any) {
 
     // If CRM rejected due to service_type validation, retry once with Hemstäd
     if (data?.errors?.service_type && payload.service_type !== "Hemstäd") {
+      console.log("[Cloudflare /api/submit-lead] ⚠️ Retrying CRM submission with service_type 'Hemstäd'...");
       payload.service_type = "Hemstäd";
       response = await fetch(CRM_URL, {
         method: "POST",
@@ -113,6 +123,7 @@ export async function onRequestPost(context: any) {
         body: JSON.stringify(payload),
       });
       text = await response.text();
+      console.log(`[Cloudflare /api/submit-lead] 📡 CRM Retry status: ${response.status}`, text);
       try {
         data = JSON.parse(text);
       } catch {
@@ -123,16 +134,29 @@ export async function onRequestPost(context: any) {
     const isSuccess = response.ok || data?.result === "success" || Boolean(data?.id);
     const leadId = data?.id ?? data?.customer_id ?? null;
 
+    console.log(`[Cloudflare /api/submit-lead] 📊 Lead received status: ${isSuccess ? '✅ YES (Lead received successfully by CRM)' : '❌ NO (Lead was not received or failed)'}`);
+    if (leadId) {
+      console.log(`[Cloudflare /api/submit-lead] 🆔 Lead Reference ID: ${leadId}`);
+    }
+    console.log("=======================================================\n");
+
     return json({
       success: isSuccess,
+      received: isSuccess,
+      message: isSuccess ? "Lead successfully received by CRM" : "Lead submission could not be processed",
       status: response.status,
       id: leadId,
       data,
       textExcerpt: data ? undefined : text.substring(0, 300),
     }, 200);
   } catch (err: any) {
-    console.error("CRM proxy fetch error:", err);
-    return json({ success: false, error: err?.message || "CRM request failed" }, 200);
+    console.error("[Cloudflare /api/submit-lead] ❌ CRM proxy fetch error:", err);
+    return json({
+      success: false,
+      received: false,
+      message: "Failed to forward lead to CRM server",
+      error: err?.message || "CRM request failed"
+    }, 200);
   }
 }
 
