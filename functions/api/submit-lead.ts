@@ -58,27 +58,13 @@ export async function onRequestPost(context: any) {
 
   const clientIp = body.user_ip || request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || "";
 
-  const requestedService = String(body.service_type || body.service || "").trim();
-
-  // If service_type is not directly in the CRM's strict enum (e.g. "Garden cleaning", "Trädgårdsservice"),
-  // map it to "Hemstäd" so the CRM database accepts it without error.
-  const crmServiceType = CRM_ACCEPTED_SERVICES.includes(requestedService)
-    ? requestedService
-    : "Hemstäd";
-
   const payload: Record<string, any> = {
     ...body,
-    name,
-    phone,
-    email,
-    service_type: crmServiceType,
-    // Preserve full details for CRM lead viewer
+    service_type: body.service_type || "Garden cleaning",
     form: body.form || DEFAULT_FORM,
-    requested_service_type: requestedService || "Garden cleaning",
-    garden_service: body.garden_service || requestedService || "Garden cleaning",
-    actual_service: requestedService || "Garden cleaning",
-    user_agent: body.user_agent || incomingUa || userAgent,
-    user_ip: clientIp,
+    name,
+    ...(phone ? { phone } : {}),
+    ...(email ? { email } : {})
   };
 
   try {
@@ -86,6 +72,7 @@ export async function onRequestPost(context: any) {
     console.log(`[Cloudflare /api/submit-lead] 🚀 FORM SUBMITTED at ${new Date().toISOString()}`);
     console.log(`[Cloudflare /api/submit-lead] Name: ${name} | Phone: ${phone} | Email: ${email}`);
     console.log(`[Cloudflare /api/submit-lead] City: ${payload.city || 'N/A'} | Desired Date: ${payload.desired_date || 'N/A'}`);
+    console.log(`[Cloudflare /api/submit-lead] Services:`, payload.services);
     console.log(`[Cloudflare /api/submit-lead] Submitting payload to CRM:`, JSON.stringify(payload, null, 2));
 
     let response = await fetch(CRM_URL, {
@@ -107,28 +94,6 @@ export async function onRequestPost(context: any) {
       data = JSON.parse(text);
     } catch {
       // plain text response
-    }
-
-    // If CRM rejected due to service_type validation, retry once with Hemstäd
-    if (data?.errors?.service_type && payload.service_type !== "Hemstäd") {
-      console.log("[Cloudflare /api/submit-lead] ⚠️ Retrying CRM submission with service_type 'Hemstäd'...");
-      payload.service_type = "Hemstäd";
-      response = await fetch(CRM_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": userAgent,
-          "Accept": "application/json, text/plain, */*"
-        },
-        body: JSON.stringify(payload),
-      });
-      text = await response.text();
-      console.log(`[Cloudflare /api/submit-lead] 📡 CRM Retry status: ${response.status}`, text);
-      try {
-        data = JSON.parse(text);
-      } catch {
-        // plain text
-      }
     }
 
     const isSuccess = response.ok || data?.result === "success" || Boolean(data?.id);

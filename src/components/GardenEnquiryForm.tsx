@@ -164,51 +164,29 @@ export default function GardenEnquiryForm({
     setIsSubmitting(true);
 
     const searchParams = new URLSearchParams(window.location.search);
-    const tracking = {
-      utm_source: searchParams.get('utm_source') || '',
-      utm_medium: searchParams.get('utm_medium') || '',
-      utm_campaign: searchParams.get('utm_campaign') || '',
-      utm_term: searchParams.get('utm_term') || '',
-      utm_content: searchParams.get('utm_content') || '',
-      gclid: searchParams.get('gclid') || '',
-      fbclid: searchParams.get('fbclid') || ''
-    };
-
     const chosenServicesText = selectedServices.join(', ');
-    const fullMessage = `Önskade trädgårdstjänster: ${chosenServicesText}\nOrt: ${city.trim()}\nÖnskat datum: ${desiredDate}`;
 
-    // CRM requirements:
-    // POST https://stadochtradgard.se/dashboard/submit_form
-    // Required: service_type ("Garden cleaning"), name, and phone or email.
-    // form: "<landing page name>"
-    // All other fields saved directly on the lead.
-    const payload: FormValues & Record<string, unknown> = {
-      service_type: 'Hemstäd',
-      requested_service_type: 'Garden cleaning',
-      garden_service: 'Garden cleaning',
-      actual_service: 'Garden cleaning',
+    // Only send the data which our form has:
+    // service_type: "Garden cleaning", form: "Trädgårdsservice", name, phone, email, city, services, desired_date
+    const payload: Record<string, any> = {
+      service_type: 'Garden cleaning',
       form: 'Trädgårdsservice',
       name: name.trim(),
       phone: phone.trim(),
       email: email.trim(),
       city: city.trim(),
-      address: city.trim(),
-      garden_services: selectedServices,
-      services: chosenServicesText,
-      selected_services: selectedServices,
-      desired_date: desiredDate,
-      cleaning_date: desiredDate,
-      cleaningDate: desiredDate,
-      landing_page_url: typeof window !== 'undefined' ? window.location.href : '',
-      offer_service: selectedServices[0] || 'Trädgårdsservice',
-      potential_service: chosenServicesText,
-      message: fullMessage,
-      comment: fullMessage,
-      button_click: 'yes',
-      is_button_click: 'yes',
-      user_type: 'Privatperson',
-      ...tracking
+      services: selectedServices,
+      desired_date: desiredDate
     };
+
+    // Only attach tracking params if actually present in URL (no empty placeholder strings)
+    const trackingKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid'];
+    for (const key of trackingKeys) {
+      const val = searchParams.get(key);
+      if (val && val.trim()) {
+        payload[key] = val.trim();
+      }
+    }
 
     // Track GTM dataLayer
     try {

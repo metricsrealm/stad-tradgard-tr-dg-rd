@@ -44,39 +44,20 @@ async function startServer() {
         return res.status(400).json({ success: false, error: "name and phone or email are required" });
       }
 
-      // CRM strictly accepts these enum values: Hemstäd, Fönsterputsning, window_cleaning, Flyttstädning, Företagskunder
-      const crmAcceptedServices = [
-        "Hemstäd",
-        "Fönsterputsning",
-        "window_cleaning",
-        "Flyttstädning",
-        "Företagskunder"
-      ];
-      const requestedService = String(body.service_type || body.service || "").trim();
-      const crmServiceType = crmAcceptedServices.includes(requestedService)
-        ? requestedService
-        : "Hemstäd";
-
       const submitPayload: Record<string, any> = {
         ...body,
-        name,
-        phone,
-        email,
-        service_type: crmServiceType,
-        requested_service_type: requestedService || "Garden cleaning",
-        garden_service: body.garden_service || requestedService || "Garden cleaning",
-        actual_service: requestedService || "Garden cleaning",
+        service_type: body.service_type || "Garden cleaning",
         form: body.form || "Trädgårdsservice",
-        ...(priceNum ? { suggested_price: priceNum, totalpris: `${priceNum} kr` } : {}),
-        user_agent: clientUserAgent,
-        user_ip: body.user_ip || clientIp
+        name,
+        ...(phone ? { phone } : {}),
+        ...(email ? { email } : {})
       };
 
       console.log("\n=======================================================");
       console.log(`[SERVER] 🚀 FORM SUBMITTED to /api/submit-lead at ${new Date().toISOString()}`);
       console.log(`[SERVER] Name: ${name} | Phone: ${phone} | Email: ${email}`);
-      console.log(`[SERVER] City: ${body.city || body.address || 'N/A'} | Desired Date: ${body.desired_date || body.cleaning_date || 'N/A'}`);
-      console.log(`[SERVER] Services: ${body.services || body.garden_services || requestedService || 'Garden cleaning'}`);
+      console.log(`[SERVER] City: ${body.city || 'N/A'} | Desired Date: ${body.desired_date || 'N/A'}`);
+      console.log(`[SERVER] Services:`, body.services);
       console.log("[SERVER] Submitting payload to CRM (https://stadochtradgard.se/dashboard/submit_form):", JSON.stringify(submitPayload, null, 2));
 
       let response = await fetch("https://stadochtradgard.se/dashboard/submit_form", {
@@ -98,26 +79,6 @@ async function startServer() {
         parsedData = JSON.parse(responseText);
       } catch {
         // text response
-      }
-
-      // Retry with Hemstäd if rejected on service_type
-      if (parsedData?.errors?.service_type && submitPayload.service_type !== "Hemstäd") {
-        console.log("[SERVER] ⚠️ Retrying CRM submission with service_type 'Hemstäd'...");
-        submitPayload.service_type = "Hemstäd";
-        response = await fetch("https://stadochtradgard.se/dashboard/submit_form", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "User-Agent": userAgent,
-            "Accept": "application/json, text/plain, */*"
-          },
-          body: JSON.stringify(submitPayload)
-        });
-        responseText = await response.text();
-        console.log(`[SERVER] 📡 CRM Retry status: ${response.status}`, responseText);
-        try {
-          parsedData = JSON.parse(responseText);
-        } catch {}
       }
 
       const leadId = parsedData?.id || parsedData?.customer_id || null;
