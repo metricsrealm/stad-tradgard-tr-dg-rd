@@ -16,7 +16,11 @@ export default function Hero({
   onSubmitSuccess
 }: HeroProps) {
   return (
-    <section className="hero" id="hero-section">
+    <section
+      className="hero"
+      id="hero-section"
+      style={{ backgroundImage: "url('/assets/aistudio/b0e55253-b179-49b2-bdb7-d74a23b376e4_53cf4016.jpg')" }}
+    >
       <div className="wrap">
         <div className="hero-copy">
           <span className="pill">

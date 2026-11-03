@@ -23,7 +23,7 @@ export default function Footer({ onPrivacyClick }: FooterProps) {
               <span>E-post:</span> <a href="mailto:info@stadochtradgard.se">info@stadochtradgard.se</a>
             </div>
             <div className="areas">
-              Verksamma i Gnosjö, Värnamo, Gislaved, Anderstorp, Hillerstorp, Jönköping, Borås, Göteborg och omnejd.
+              Verksamma i Gnosjö, Värnamo, Gislaved, Anderstorp, Hillerstorp och omnejd.
             </div>
           </div>
         </div>

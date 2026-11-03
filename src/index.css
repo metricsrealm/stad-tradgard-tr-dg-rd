@@ -213,7 +213,7 @@ svg {
 .hero {
   position: relative;
   color: #fff;
-  background: #0f1612 url('https://stadochtradgard.se/wp-content/uploads/2026/03/gallery-new-image-1024x1024.jpeg') center/cover no-repeat;
+  background: #0f1612 url('/assets/aistudio/b0e55253-b179-49b2-bdb7-d74a23b376e4_53cf4016.jpg') center/cover no-repeat;
   isolation: isolate;
 }
 

@@ -20,7 +20,7 @@ const FAQS: FAQItem[] = [
   },
   {
     question: 'Hur bokar jag trädgårdsservice?',
-    answer: 'Du bokar enkelt via formuläret på sidan eller ringer oss direkt på 010-175 30 40. Vi återkommer inom 24 timmar med ett prisförslag.'
+    answer: 'Du bokar enkelt via formuläret på sidan eller ringer oss direkt på 010-175 30 40.'
   },
   {
     question: 'Vilket område täcker ni med trädgårdsservice?',

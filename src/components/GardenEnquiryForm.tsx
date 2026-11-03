@@ -37,7 +37,7 @@ export default function GardenEnquiryForm({
   onPrivacyClick,
   onSubmitSuccess
 }: GardenEnquiryFormProps) {
-  // Step 1: Kontakt, Step 2: Tjänster, Step 3: Klart
+  // Step 1: Tjänster, Step 2: Kontakt, Step 3: Klart
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedServices, setSelectedServices] = useState<string[]>(['Gräsklippning']);
   const [city, setCity] = useState<string>(initialCity !== undefined ? initialCity : (getCityFromURL() || ''));
@@ -100,43 +100,8 @@ export default function GardenEnquiryForm({
     });
   };
 
-  // Step 1 (Kontakt) -> Step 2 (Tjänster)
+  // Step 1 (Tjänster & Datum) -> Step 2 (Kontakt)
   const handleStep1Next = () => {
-    const isNameBad = name.trim().length < 2;
-    const isPhoneBad = phone.replace(/\D/g, '').length < 7;
-    const isEmailBad = !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
-
-    setNameError(isNameBad);
-    setPhoneError(isPhoneBad);
-    setEmailError(isEmailBad);
-
-    if (isNameBad || isPhoneBad || isEmailBad) {
-      focusFirst([isNameBad && 'name', isPhoneBad && 'phone', isEmailBad && 'email']);
-      return;
-    }
-
-    setStep(2);
-    try {
-      (window as any).dataLayer = (window as any).dataLayer || [];
-      (window as any).dataLayer.push({ event: 'garden_form_step', step: 2 });
-    } catch (e) {}
-  };
-
-  // Step 2 (Tjänster) -> Step 1 (Kontakt)
-  const handleBackToStep1 = () => {
-    setStep(1);
-    try {
-      (window as any).dataLayer = (window as any).dataLayer || [];
-      (window as any).dataLayer.push({ event: 'garden_form_step', step: 1 });
-    } catch (e) {}
-  };
-
-  // Step 2 Submit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (isSubmitting) return;
-
     const isServiceBad = selectedServices.length === 0;
     const isCityBad = city.trim().length < 2;
     const isDateBad = !desiredDate;
@@ -154,6 +119,40 @@ export default function GardenEnquiryForm({
       return;
     }
 
+    setStep(2);
+    try {
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      (window as any).dataLayer.push({ event: 'garden_form_step', step: 2 });
+    } catch (e) {}
+  };
+
+  // Step 2 (Kontakt) -> Step 1 (Tjänster)
+  const handleBackToStep1 = () => {
+    setStep(1);
+    try {
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      (window as any).dataLayer.push({ event: 'garden_form_step', step: 1 });
+    } catch (e) {}
+  };
+
+  // Step 2 Submit (Kontakt)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (isSubmitting) return;
+
+    const isNameBad = name.trim().length < 2;
+    const isPhoneBad = phone.replace(/\D/g, '').length < 7;
+    const isEmailBad = !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+
+    setNameError(isNameBad);
+    setPhoneError(isPhoneBad);
+    setEmailError(isEmailBad);
+
+    if (isNameBad || isPhoneBad || isEmailBad) {
+      focusFirst([isNameBad && 'name', isPhoneBad && 'phone', isEmailBad && 'email']);
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -296,7 +295,7 @@ export default function GardenEnquiryForm({
 
   return (
     <div className="card" id="offert">
-      {/* Step Indicators: 1 Kontakt -> 2 Tjänster -> 3 Klart */}
+      {/* Step Indicators: 1 Tjänster -> 2 Kontakt -> 3 Klart */}
       <div className="steps" id="steps" aria-hidden="true">
         <div className={`st ${step === 1 ? 'on' : step > 1 ? 'done' : ''}`}>
           <i>
@@ -306,7 +305,7 @@ export default function GardenEnquiryForm({
               '1'
             )}
           </i>
-          <span>Kontakt</span>
+          <span>Tjänster</span>
         </div>
 
         <div className={`ln ${step > 1 ? 'fill' : ''}`}></div>
@@ -319,7 +318,7 @@ export default function GardenEnquiryForm({
               '2'
             )}
           </i>
-          <span>Tjänster</span>
+          <span>Kontakt</span>
         </div>
 
         <div className={`ln ${step === 3 ? 'fill' : ''}`}></div>
@@ -337,10 +336,10 @@ export default function GardenEnquiryForm({
       </div>
 
       <form id="lead" onSubmit={handleSubmit} noValidate>
-        {/* Step 1: Kontakt */}
+        {/* Step 1: Tjänster (3 by 3 list) & Ort / Område / Datum */}
         <div className={`panel ${step === 1 ? 'show' : ''}`} data-step="1">
-          <h2>Dina kontaktuppgifter</h2>
-          <p className="sub">Fyll i dina uppgifter så kontaktar vi dig inom 24 timmar.</p>
+          <h2>Välj trädgårdstjänster</h2>
+          <p className="sub">Berätta vad du behöver hjälp med så lämnar vi offert.</p>
 
           {/* Selected Service Card */}
           <div className="selected-service-card">
@@ -356,86 +355,6 @@ export default function GardenEnquiryForm({
             <span className="ssc-badge">Vald</span>
           </div>
 
-          {/* Namn and Telefon on the same row */}
-          <div className="field-row">
-            <div className="field">
-              <label htmlFor="name">
-                Namn <b>*</b>
-              </label>
-              <div className={`inp ${nameError ? 'err' : ''}`}>
-                <svg className="ico"><use href="#i-user" /></svg>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  placeholder="För- och efternamn"
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (nameError) setNameError(false);
-                  }}
-                />
-              </div>
-              <p className={`msg ${nameError ? 'show' : ''}`}>Ange namn.</p>
-            </div>
-
-            <div className="field">
-              <label htmlFor="phone">
-                Telefon <b>*</b>
-              </label>
-              <div className={`inp ${phoneError ? 'err' : ''}`}>
-                <svg className="ico"><use href="#i-phone" /></svg>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  inputMode="tel"
-                  placeholder="070-123 45 67"
-                  autoComplete="tel"
-                  value={phone}
-                  onChange={(e) => {
-                    setPhone(e.target.value);
-                    if (phoneError) setPhoneError(false);
-                  }}
-                />
-              </div>
-              <p className={`msg ${phoneError ? 'show' : ''}`}>Ange telefonnummer.</p>
-            </div>
-          </div>
-
-          <div className="field">
-            <label htmlFor="email">
-              E-post <b>*</b>
-            </label>
-            <div className={`inp ${emailError ? 'err' : ''}`}>
-              <svg className="ico"><use href="#i-mail" /></svg>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="namn@exempel.se"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (emailError) setEmailError(false);
-                }}
-              />
-            </div>
-            <p className={`msg ${emailError ? 'show' : ''}`}>Ange en giltig e-postadress.</p>
-          </div>
-
-          <button type="button" className="go" onClick={handleStep1Next} data-next>
-            Fortsätt <svg className="ico"><use href="#i-arrow" /></svg>
-          </button>
-        </div>
-
-        {/* Step 2: Tjänster (3 by 3 list) & Ort / Område */}
-        <div className={`panel ${step === 2 ? 'show' : ''}`} data-step="2">
-          <h2>Välj trädgårdstjänster</h2>
-          <p className="sub">Berätta vad du behöver hjälp med så lämnar vi offert.</p>
-
           <div className="fl">
             <span>
               Välj trädgårdstjänst <b>*</b>
@@ -443,7 +362,7 @@ export default function GardenEnquiryForm({
             <small>50% RUT-avdrag</small>
           </div>
 
-          {/* 2-column grid for services */}
+          {/* 3 by 3 list */}
           <div
             className={`checks checks-3by3 ${serviceError ? 'has-err' : ''}`}
             id="services"
@@ -517,13 +436,93 @@ export default function GardenEnquiryForm({
             </div>
           </div>
 
+          <button type="button" className="go" onClick={handleStep1Next} data-next>
+            Fortsätt <svg className="ico"><use href="#i-arrow" /></svg>
+          </button>
+        </div>
+
+        {/* Step 2: Kontaktuppgifter */}
+        <div className={`panel ${step === 2 ? 'show' : ''}`} data-step="2">
+          <h2>Dina kontaktuppgifter</h2>
+          <p className="sub">Fyll i dina uppgifter så kontaktar vi dig inom 24 timmar.</p>
+
+          {/* Namn and Telefon on the same row */}
+          <div className="field-row">
+            <div className="field">
+              <label htmlFor="name">
+                Namn <b>*</b>
+              </label>
+              <div className={`inp ${nameError ? 'err' : ''}`}>
+                <svg className="ico"><use href="#i-user" /></svg>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  placeholder="För- och efternamn"
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (nameError) setNameError(false);
+                  }}
+                />
+              </div>
+              <p className={`msg ${nameError ? 'show' : ''}`}>Ange namn.</p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="phone">
+                Telefon <b>*</b>
+              </label>
+              <div className={`inp ${phoneError ? 'err' : ''}`}>
+                <svg className="ico"><use href="#i-phone" /></svg>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="070-123 45 67"
+                  autoComplete="tel"
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    if (phoneError) setPhoneError(false);
+                  }}
+                />
+              </div>
+              <p className={`msg ${phoneError ? 'show' : ''}`}>Ange telefonnummer.</p>
+            </div>
+          </div>
+
+          <div className="field">
+            <label htmlFor="email">
+              E-post <b>*</b>
+            </label>
+            <div className={`inp ${emailError ? 'err' : ''}`}>
+              <svg className="ico"><use href="#i-mail" /></svg>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="namn@exempel.se"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) setEmailError(false);
+                }}
+              />
+            </div>
+            <p className={`msg ${emailError ? 'show' : ''}`}>Ange en giltig e-postadress.</p>
+          </div>
+
           <div className="row">
             <button
               type="button"
               className="back"
               onClick={handleBackToStep1}
               data-back
-              aria-label="Tillbaka till kontaktuppgifter"
+              aria-label="Tillbaka till val av tjänster"
             >
               <svg className="ico"><use href="#i-left" /></svg>Tillbaka
             </button>
@@ -558,10 +557,10 @@ export default function GardenEnquiryForm({
         </div>
       </form>
 
-      {/* Card Foot (hidden on Step 3). On Step 2, trust guarantees are hidden per user request */}
+      {/* Card Foot (hidden on Step 3) */}
       {step !== 3 && (
-        <div id="card-foot" className={step === 2 ? 'no-ticks' : ''}>
-          {step === 1 && (
+        <div id="card-foot" className={step === 1 ? 'no-ticks' : ''}>
+          {step === 2 && (
             <div className="ticks">
               <span>
                 <svg className="ico"><use href="#i-check" /></svg>50% RUT-avdrag direkt

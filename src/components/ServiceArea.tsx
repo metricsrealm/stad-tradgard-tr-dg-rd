@@ -10,10 +10,7 @@ const CITIES = [
   'Hillerstorp',
   'Hestra',
   'Kulltorp',
-  'Forsheda',
-  'Jönköping',
-  'Borås',
-  'Göteborg'
+  'Forsheda'
 ];
 
 export default function ServiceArea({ currentCityName }: ServiceAreaProps) {
@@ -35,7 +32,7 @@ export default function ServiceArea({ currentCityName }: ServiceAreaProps) {
             )}
           </h2>
           <p>
-            Vi hjälper privatpersoner, bostadsrättsföreningar och företag i Gnosjö, Värnamo, Gislaved, Anderstorp, Jönköping, Borås, Göteborg och omkringliggande områden.
+            Vi hjälper privatpersoner, bostadsrättsföreningar och företag i Gnosjö, Värnamo, Gislaved, Anderstorp, Hillerstorp, Hestra, Kulltorp, Forsheda och omkringliggande områden.
           </p>
         </div>
 
